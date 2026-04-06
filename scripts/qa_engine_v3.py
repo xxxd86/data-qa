@@ -142,8 +142,13 @@ def analyze_month(file_path: str, month: str = None) -> Dict:
     idx_total_yoy = 3
     idx_fee_tpo = 4
     idx_fee_yoy = 5
+    idx_fee_ratio = 6
     idx_promo_tpo = 7
     idx_promo_yoy = 8
+    idx_promo_ratio = 9
+    idx_second_tpo = 10
+    idx_second_yoy = 11
+    idx_second_ratio = 12
     # 列10-14 可能包含"售后服务"和"资产权益"
 
     order_volume = get_col_val_by_idx(idx_order_volume)
@@ -168,12 +173,23 @@ def analyze_month(file_path: str, month: str = None) -> Dict:
     # 费用疑义
     fee_tpo = get_col_val_by_idx(idx_fee_tpo)
     fee_yoy_raw = get_col_val_by_idx(idx_fee_yoy)
-    if fee_tpo:
+    fee_ratio_raw = get_col_val_by_idx(idx_fee_ratio)
+    if fee_tpo is not None and fee_tpo != '':
         try:
+            # 解析占比（可能是 "13%" 这样的格式）
+            fee_ratio = None
+            if fee_ratio_raw and fee_ratio_raw != '':
+                ratio_str = str(fee_ratio_raw).strip()
+                if '%' in ratio_str:
+                    fee_ratio = float(ratio_str.replace('%', '').strip()) / 100
+                else:
+                    fee_ratio = float(ratio_str) / 100 if float(ratio_str) > 1 else float(ratio_str)
+
             scenarios.append({
                 "name": "费用疑义",
                 "tpo": float(fee_tpo),
-                "yoy": parse_yoy(fee_yoy_raw)
+                "yoy": parse_yoy(fee_yoy_raw),
+                "ratio": fee_ratio
             })
         except:
             pass
@@ -181,17 +197,54 @@ def analyze_month(file_path: str, month: str = None) -> Dict:
     # 营销活动
     promo_tpo = get_col_val_by_idx(idx_promo_tpo)
     promo_yoy_raw = get_col_val_by_idx(idx_promo_yoy)
-    if promo_tpo:
+    promo_ratio_raw = get_col_val_by_idx(idx_promo_ratio)
+    if promo_tpo is not None and promo_tpo != '':
         try:
+            # 解析占比
+            promo_ratio = None
+            if promo_ratio_raw and promo_ratio_raw != '':
+                ratio_str = str(promo_ratio_raw).strip()
+                if '%' in ratio_str:
+                    promo_ratio = float(ratio_str.replace('%', '').strip()) / 100
+                else:
+                    promo_ratio = float(ratio_str) / 100 if float(ratio_str) > 1 else float(ratio_str)
+
             scenarios.append({
                 "name": "营销活动",
                 "tpo": float(promo_tpo),
-                "yoy": parse_yoy(promo_yoy_raw)
+                "yoy": parse_yoy(promo_yoy_raw),
+                "ratio": promo_ratio
             })
         except:
             pass
 
-    # 检测"售后服务"和"资产权益"（可能在列10-14）
+    # 二次号 (2025/1-2025/10)
+    second_tpo = get_col_val_by_idx(idx_second_tpo)
+    second_yoy_raw = get_col_val_by_idx(idx_second_yoy)
+    second_ratio_raw = get_col_val_by_idx(idx_second_ratio)
+    if second_tpo is not None and second_tpo != '':
+        try:
+            # 解析占比
+            second_ratio = None
+            if second_ratio_raw and second_ratio_raw != '':
+                ratio_str = str(second_ratio_raw).strip()
+                if '%' in ratio_str:
+                    second_ratio = float(ratio_str.replace('%', '').strip()) / 100
+                else:
+                    second_ratio = float(ratio_str) / 100 if float(ratio_str) > 1 else float(ratio_str)
+
+            scenarios.append({
+                "name": "二次号",
+                "tpo": float(second_tpo),
+                "yoy": parse_yoy(second_yoy_raw),
+                "ratio": second_ratio
+            })
+        except:
+            pass
+
+    # 检测"售后服务"和"资产权益"（可能在列10-15）
+    # 数据格式: 售后服务1.0 (列10), 资产权益1.48 (列14)
+    # 占比规则: 在场景值之后查找第一个非空且包含%的列
     for idx in range(10, 15):
         val = get_col_val_by_idx(idx)
         if val and ("售后服务" in val or "资产权益" in val):
@@ -200,11 +253,27 @@ def analyze_month(file_path: str, month: str = None) -> Dict:
             if match:
                 name = match.group(1).strip()
                 tpo_val = match.group(2)
+
+                # 向后查找占比 (在场景列之后查找第一个包含%的非空列)
+                ratio = None
+                for ratio_idx in range(idx + 1, len(row)):
+                    ratio_raw = row[ratio_idx] if ratio_idx < len(row) else None
+                    if ratio_raw and str(ratio_raw).strip():
+                        ratio_str = str(ratio_raw).strip()
+                        if '%' in ratio_str:
+                            # 找到占比数据
+                            try:
+                                ratio = float(ratio_str.replace('%', '').strip()) / 100
+                            except:
+                                pass
+                            break  # 找到就停止
+
                 try:
                     scenarios.append({
                         "name": name,
                         "tpo": float(tpo_val),
-                        "yoy": None  # 这些场景没有 YOY 数据
+                        "yoy": None,  # 这些场景没有 YOY 数据
+                        "ratio": ratio
                     })
                 except:
                     pass
@@ -283,13 +352,23 @@ def format_month_report(analysis: Dict) -> str:
         name = scenario["name"]
         tpo = scenario["tpo"]
         yoy = scenario.get("yoy")
+        ratio = scenario.get("ratio")
 
+        # 构建 TPO 字符串
+        tpo_str = f"{tpo:.2f}"
+
+        # 构建 YoY 字符串
         if yoy is not None:
             yoy_pct = yoy * 100
             yoy_emoji = "[UP]" if yoy >= 0 else "[DOWN]"
-            lines.append(f"- **{name}**: {tpo:.2f} ({yoy_emoji} YoY: {yoy_pct:.1f}%)")
-        else:
-            lines.append(f"- **{name}**: {tpo:.2f}")
+            tpo_str += f" ({yoy_emoji} YoY: {yoy_pct:.1f}%)"
+
+        # 构建占比字符串
+        if ratio is not None:
+            ratio_pct = ratio * 100
+            tpo_str += f", 占比 {ratio_pct:.1f}%"
+
+        lines.append(f"- **{name}**: {tpo_str}")
 
     lines.append("")
 

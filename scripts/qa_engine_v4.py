@@ -167,6 +167,20 @@ class DataAnalyzer:
             return None
         return (current_val - prev_val) / prev_val
 
+    def get_scenario_mom(self, current_scenario: str, current_tpo: float, prev_month: str) -> Optional[float]:
+        """计算场景的环比"""
+        prev_data = self.get_month_data(prev_month)
+        if not prev_data:
+            return None
+
+        prev_scenarios = self.get_scenarios(prev_data)
+        prev_scenario = next((s for s in prev_scenarios if s["name"] == current_scenario), None)
+
+        if prev_scenario and prev_scenario.get("tpo") and prev_scenario["tpo"] != 0:
+            return (current_tpo - prev_scenario["tpo"]) / prev_scenario["tpo"]
+
+        return None
+
     def get_scenarios(self, month_data: Dict) -> List[Dict]:
         """提取场景数据"""
         row = month_data["row"]
@@ -296,6 +310,7 @@ class DataAnalyzer:
             return {"error": f"未找到 {month} 的数据"}
 
         row = month_data["row"]
+        months = self.get_months()
 
         def get_col_val(idx, default=None):
             if idx is None or idx >= len(row):
@@ -338,8 +353,16 @@ class DataAnalyzer:
         # 场景数据
         scenarios = self.get_scenarios(month_data)
 
-        # 计算 MoM
+        # 计算场景环比
         months = self.get_months()
+        if month in months:
+            idx = months.index(month)
+            if idx > 0:
+                prev_month = months[idx - 1]
+                for scenario in scenarios:
+                    scenario["mom"] = self.get_scenario_mom(scenario["name"], scenario["tpo"], prev_month)
+
+        # 计算 MoM（总TPO）
         mom_change = None
         if month in months:
             idx = months.index(month)
@@ -348,7 +371,7 @@ class DataAnalyzer:
                 prev_data = self.get_month_data(prev_month)
                 if prev_data:
                     prev_row = prev_data["row"]
-                    prev_total_tpo_raw = get_col_val(idx_total_tpo)
+                    prev_total_tpo_raw = prev_row[idx_total_tpo] if len(prev_row) > idx_total_tpo else None
                     try:
                         prev_total_tpo = float(prev_total_tpo_raw) if prev_total_tpo_raw else None
                         if prev_total_tpo and total_tpo and prev_total_tpo != 0:
@@ -844,7 +867,7 @@ def format_answer(answer: Dict) -> str:
             if data.get("mom_change") is not None:
                 mom_pct = data["mom_change"] * 100
                 mom_text = "[UP]" if data["mom_change"] >= 0 else "[DOWN]"
-                lines.append(f"- 相邻月趋势：{mom_text} {mom_pct:.1f}%")
+                lines.append(f"- 环比（vs上月）：{mom_text} {mom_pct:.1f}%")
 
             lines.append("")
 
@@ -857,6 +880,10 @@ def format_answer(answer: Dict) -> str:
                     yoy_pct = s["yoy"] * 100
                     yoy_text = "[UP]" if s["yoy"] >= 0 else "[DOWN]"
                     s_text += f" ({yoy_text} YoY: {yoy_pct:.1f}%)"
+                if s.get("mom") is not None:
+                    mom_pct = s["mom"] * 100
+                    mom_text = "[UP]" if s["mom"] >= 0 else "[DOWN]"
+                    s_text += f"，环比 {mom_text} {mom_pct:.1f}%"
                 if s.get("ratio") is not None:
                     ratio_pct = s["ratio"] * 100
                     s_text += f"，占比 {ratio_pct:.1f}%"

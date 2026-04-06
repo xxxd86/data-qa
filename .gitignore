@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Project specific
+memory/*.db
+memory/*.sqlite
+memory/*.sqlite3
+*.log
+*.tmp
+
+# Temporary files
+*.bak
+*.cache
+.~*
+
+# Keep directories but ignore contents
+# (use ! in subdirectories to keep important files)

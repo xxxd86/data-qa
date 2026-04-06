@@ -1,0 +1,270 @@
+{
+  "evals": [
+    {
+      "id": "eval-001",
+      "description": "默认分析最新月（2026/3）",
+      "input": {
+        "file": "test.csv",
+        "question": "分析最新的月度数据",
+        "memory_dir": "memory/"
+      },
+      "expected_output": {
+        "month": "2026/3",
+        "order_volume": 28616498,
+        "total_tpo": 13.31,
+        "yoy": -0.18,
+        "mom_change": -0.049,
+        "scenarios": [
+          {"name": "费用疑义", "tpo": 1.74, "yoy": -0.304},
+          {"name": "营销活动", "tpo": 0.85, "yoy": -0.375},
+          {"name": "售后服务", "tpo": 1.0, "yoy": null},
+          {"name": "资产权益", "tpo": 0.96, "yoy": null}
+        ]
+      },
+      "assertions": [
+        "must contain: '2026/3'",
+        "must contain: '完单量: 28,616,498'",
+        "must contain: '总 TPO: 13.31'",
+        "must contain: '年度 YoY: [DOWN] -18.0%'",
+        "must contain: '相邻月趋势: [DOWN] -4.9%'",
+        "must contain: '场景 TPO（共 4 个场景）'",
+        "must not contain: '十大场景'",
+        "must not contain: '累计'",
+        "must not contain: '持续'"
+      ]
+    },
+    {
+      "id": "eval-002",
+      "description": "分析指定月份（2025/10，3个场景）",
+      "input": {
+        "file": "test.csv",
+        "question": "分析2025/10的月度数据",
+        "memory_dir": "memory/"
+      },
+      "expected_output": {
+        "month": "2025/10",
+        "order_volume": 26821411,
+        "total_tpo": 12.1,
+        "yoy": -0.45,
+        "scenarios": [
+          {"name": "费用疑义", "tpo": 2.29, "yoy": -0.188},
+          {"name": "营销活动", "tpo": 1.01, "yoy": -0.273},
+          {"name": "二次号", "tpo": 0.0, "yoy": -1.0}
+        ]
+      },
+      "assertions": [
+        "must contain: '2025/10'",
+        "must contain: '场景 TPO（共 3 个场景）'",
+        "must contain: '费用疑义'",
+        "must contain: '营销活动'",
+        "must contain: '二次号'",
+        "must not contain: '售后服务'",
+        "must not contain: '资产权益'",
+        "must not contain: '4 个场景'"
+      ]
+    },
+    {
+      "id": "eval-003",
+      "description": "相邻月趋势对比（2026/3 vs 2026/2）",
+      "input": {
+        "file": "test.csv",
+        "question": "最新月 vs 上月的 TPO 变化",
+        "memory_dir": "memory/"
+      },
+      "expected_output": {
+        "month": "2026/3",
+        "mom_change": -0.049,
+        "mom_percentage": -4.9
+      },
+      "assertions": [
+        "must contain: '相邻月趋势: [DOWN] -4.9%'",
+        "must not contain: '8个月同比下降'",
+        "must not contain: '持续下降'"
+      ]
+    },
+    {
+      "id": "eval-004",
+      "description": "年度同比（2026/3 vs 2025/3）",
+      "input": {
+        "file": "test.csv",
+        "question": "最新月的年度同比",
+        "memory_dir": "memory/"
+      },
+      "expected_output": {
+        "month": "2026/3",
+        "yoy": -0.18,
+        "yoy_percentage": -18.0
+      },
+      "assertions": [
+        "must contain: '年度 YoY: [DOWN] -18.0%'",
+        "must contain: 'vs 上年同月'",
+        "must not contain: '多年累计'"
+      ]
+    },
+    {
+      "id": "eval-005",
+      "description": "缺失场景处理（2025/10 只有3个场景，不编造第4个）",
+      "input": {
+        "file": "test.csv",
+        "question": "2025/10的所有场景TPO",
+        "memory_dir": "memory/"
+      },
+      "expected_output": {
+        "month": "2025/10",
+        "scenarios": [
+          {"name": "费用疑义", "tpo": 2.29},
+          {"name": "营销活动", "tpo": 1.01},
+          {"name": "二次号", "tpo": 0.0}
+        ],
+        "scenario_count": 3
+      },
+      "assertions": [
+        "must contain: '场景 TPO（共 3 个场景）'",
+        "must not contain: '售后服务'",
+        "must not contain: '资产权益'",
+        "must not contain: '十大场景'",
+        "must not contain: '缺失'"
+      ]
+    },
+    {
+      "id": "eval-006",
+      "description": "空值 YOY 处理（2025/11 无 YOY 数据）",
+      "input": {
+        "file": "test.csv",
+        "question": "分析2025/11的数据",
+        "memory_dir": "memory/"
+      },
+      "expected_output": {
+        "month": "2025/11",
+        "yoy": null,
+        "scenarios": [
+          {"name": "费用疑义", "tpo": 2.05, "yoy": null},
+          {"name": "营销活动", "tpo": 1.29, "yoy": null},
+          {"name": "售后服务", "tpo": 0.99, "yoy": null},
+          {"name": "资产权益", "tpo": 1.85, "yoy": null}
+        ]
+      },
+      "assertions": [
+        "must contain: '年度 YoY: 无数据'",
+        "must not contain: '异常'",
+        "must not contain: '警告'",
+        "must not contain: '缺失 YOY'"
+      ]
+    },
+    {
+      "id": "eval-007",
+      "description": "TPO=0 场景识别（2025/10 二次号为0）",
+      "input": {
+        "file": "test.csv",
+        "question": "2025/10 TPO 为 0 的场景",
+        "memory_dir": "memory/"
+      },
+      "expected_output": {
+        "month": "2025/10",
+        "zero_tpo_scenarios": ["二次号"]
+      },
+      "assertions": [
+        "must contain: '二次号: 0.00'",
+        "must not contain: '费用疑义: 0'",
+        "must not contain: '营销活动: 0'"
+      ]
+    },
+    {
+      "id": "eval-008",
+      "description": "禁止累计计算",
+      "input": {
+        "file": "test.csv",
+        "question": "2026/3 的累计 TPO 变化",
+        "memory_dir": "memory/"
+      },
+      "expected_output": {
+        "error": true,
+        "error_message": "不支持累计计算"
+      },
+      "assertions": [
+        "must contain: '不支持'",
+        "must not contain: '累计下降'",
+        "must not contain: '累计增长'"
+      ]
+    },
+    {
+      "id": "eval-009",
+      "description": "禁止模糊形容词",
+      "input": {
+        "file": "test.csv",
+        "question": "分析最新月 TPO 趋势",
+        "memory_dir": "memory/"
+      },
+      "expected_output": {
+        "contains_data": true
+      },
+      "assertions": [
+        "must not contain: '剧烈'",
+        "must not contain: '明显'",
+        "must not contain: '显著'",
+        "must not contain: '持续'"
+      ]
+    },
+    {
+      "id": "eval-010",
+      "description": "场景名称映射（使用当前名称：资产权益、售后服务）",
+      "input": {
+        "file": "test.csv",
+        "question": "2025/11 的所有场景",
+        "memory_dir": "memory/"
+      },
+      "expected_output": {
+        "scenarios": [
+          {"name": "费用疑义"},
+          {"name": "营销活动"},
+          {"name": "售后服务"},
+          {"name": "资产权益"}
+        ]
+      },
+      "assertions": [
+        "must contain: '售后服务'",
+        "must contain: '资产权益'",
+        "must not contain: '二次号'",
+        "must not contain: '微信渠道客诉'"
+      ]
+    },
+    {
+      "id": "eval-011",
+      "description": "相邻月趋势无数据（2025/1 无上月）",
+      "input": {
+        "file": "test.csv",
+        "question": "分析2025/1的数据",
+        "memory_dir": "memory/"
+      },
+      "expected_output": {
+        "month": "2025/1",
+        "mom_change": null
+      },
+      "assertions": [
+        "must contain: '相邻月趋势: 无上月数据'",
+        "must not contain: 'vs 2025/0'"
+      ]
+    },
+    {
+      "id": "eval-012",
+      "description": "混合格式场景解析（'售后服务1.0'、'资产权益0.96'）",
+      "input": {
+        "file": "test.csv",
+        "question": "2026/3 的售后和资产场景",
+        "memory_dir": "memory/"
+      },
+      "expected_output": {
+        "scenarios": [
+          {"name": "售后服务", "tpo": 1.0},
+          {"name": "资产权益", "tpo": 0.96}
+        ]
+      },
+      "assertions": [
+        "must contain: '售后服务: 1.00'",
+        "must contain: '资产权益: 0.96'",
+        "must not contain: '售后服务1.0'",
+        "must not contain: '资产权益0.96'"
+      ]
+    }
+  ]
+}

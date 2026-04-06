@@ -149,7 +149,8 @@ class DataAnalyzer:
     def get_month_data(self, month: str) -> Optional[Dict]:
         """获取指定月份数据"""
         for row in self.data:
-            if month in row[0]:
+            # 使用精确匹配而非子串匹配
+            if row[0].strip() == month.strip():
                 return {
                     "row": row,
                     "headers": self.headers,
@@ -213,8 +214,8 @@ class DataAnalyzer:
                 if '%' in ratio_str:
                     return float(ratio_str.replace('%', '').strip()) / 100
                 else:
-                    val = float(ratio_str)
-                    return val / 100 if val > 1 else val
+                    # 直接返回数值，不使用启发式判断
+                    return float(ratio_str)
             except:
                 return None
 
@@ -278,9 +279,9 @@ class DataAnalyzer:
                     name = match.group(1).strip()
                     tpo_val = match.group(2)
 
-                    # 向后查找占比
+                    # 向后查找占比（最多查找3列）
                     ratio = None
-                    for ratio_idx in range(idx + 1, len(row)):
+                    for ratio_idx in range(idx + 1, min(idx + 4, len(row))):
                         ratio_raw = row[ratio_idx] if ratio_idx < len(row) else None
                         if ratio_raw and str(ratio_raw).strip():
                             ratio_str = str(ratio_raw).strip()
@@ -289,6 +290,9 @@ class DataAnalyzer:
                                     ratio = float(ratio_str.replace('%', '').strip()) / 100
                                 except:
                                     pass
+                                break
+                            # 如果遇到其他场景名称，停止查找
+                            if "售后服务" in ratio_str or "资产权益" in ratio_str:
                                 break
 
                     try:
@@ -622,11 +626,6 @@ class QAEEngine:
             yoy_text = "增长" if analysis["yoy"] >= 0 else "下降"
             conclusion_parts.append(f"{yoy_text} {abs(yoy_pct):.1f}%（同比）")
 
-        if analysis.get("mom_change") is not None:
-            mom_pct = analysis["mom_change"] * 100
-            mom_text = "增长" if analysis["mom_change"] >= 0 else "下降"
-            conclusion_parts.append(f"{mom_text} {abs(mom_pct):.1f}%（环比）")
-
         conclusion = "，".join(conclusion_parts) + "。"
 
         return {
@@ -707,11 +706,6 @@ class QAEEngine:
             yoy_pct = analysis["yoy"] * 100
             yoy_text = "上升" if analysis["yoy"] >= 0 else "下降"
             trend_parts.append(f"同比 {yoy_text} {abs(yoy_pct):.1f}%")
-
-        if analysis.get("mom_change") is not None:
-            mom_pct = analysis["mom_change"] * 100
-            mom_text = "上升" if analysis["mom_change"] >= 0 else "下降"
-            trend_parts.append(f"环比 {mom_text} {abs(mom_pct):.1f}%")
 
         if trend_parts:
             conclusion = f"{month} 总TPO {'，'.join(trend_parts)}。"
@@ -856,38 +850,48 @@ def format_answer(answer: Dict) -> str:
 
         # 单月分析数据
         if "month" in data and "total_tpo" in data:
-            lines.append(f"- 完单量：{data.get('order_volume', '-'):,.0f}")
-            lines.append(f"- 总 TPO：{data.get('total_tpo', '-'):.2f}")
+            lines.append("| 完单量 | 总 TPO | YoY |")
+            lines.append("|--------|--------|-----|")
+
+            order_vol = f"{data.get('order_volume', '-'):,.0f}"
+            tpo = f"{data.get('total_tpo', '-'):.2f}"
 
             if data.get("yoy") is not None:
                 yoy_pct = data["yoy"] * 100
-                yoy_text = "[UP]" if data["yoy"] >= 0 else "[DOWN]"
-                lines.append(f"- 年度 YoY：{yoy_text} {yoy_pct:.1f}%")
+                yoy_text = f"{yoy_pct:.1f}%"
+            else:
+                yoy_text = "-"
 
-            if data.get("mom_change") is not None:
-                mom_pct = data["mom_change"] * 100
-                mom_text = "[UP]" if data["mom_change"] >= 0 else "[DOWN]"
-                lines.append(f"- 环比（vs上月）：{mom_text} {mom_pct:.1f}%")
-
+            lines.append(f"| {order_vol} | {tpo} | {yoy_text} |")
             lines.append("")
 
         # 场景数据
         if "scenarios" in data and data["scenarios"]:
             lines.append(f"**场景 TPO（{len(data['scenarios'])} 个场景）**：")
+            lines.append("")
+
+            # 使用表格格式
+            lines.append("| 场景 | TPO | YoY | 占比 |")
+            lines.append("|------|-----|-----|------|")
             for s in data["scenarios"]:
-                s_text = f"- {s['name']}：{s['tpo']:.2f}"
+                # TPO
+                tpo_text = f"{s['tpo']:.2f}"
+
+                # YoY
                 if s.get("yoy") is not None:
                     yoy_pct = s["yoy"] * 100
-                    yoy_text = "[UP]" if s["yoy"] >= 0 else "[DOWN]"
-                    s_text += f" ({yoy_text} YoY: {yoy_pct:.1f}%)"
-                if s.get("mom") is not None:
-                    mom_pct = s["mom"] * 100
-                    mom_text = "[UP]" if s["mom"] >= 0 else "[DOWN]"
-                    s_text += f"，环比 {mom_text} {mom_pct:.1f}%"
+                    yoy_text = f"{yoy_pct:.1f}%"
+                else:
+                    yoy_text = "-"
+
+                # 占比
                 if s.get("ratio") is not None:
-                    ratio_pct = s["ratio"] * 100
-                    s_text += f"，占比 {ratio_pct:.1f}%"
-                lines.append(s_text)
+                    ratio_text = f"{s['ratio'] * 100:.0f}%"
+                else:
+                    ratio_text = "-"
+
+                lines.append(f"| {s['name']} | {tpo_text} | {yoy_text} | {ratio_text} |")
+
             lines.append("")
 
         # 场景详情

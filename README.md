@@ -1,8 +1,18 @@
 # data-qa Skill
 
-TPO 数据分析 Skill,支持对 xlsx/csv 文件进行自然语言问答。
+TPO 数据分析 Skill,支持对 xlsx/csv 文件进行智能问答分析。
 
 ## 功能特点
+
+### v4.0 新增能力
+
+- **智能意图识别**: 自动理解用户问题类型(查询、排名、趋势、对比、异常检测)
+- **多维度分析**: 支持6种查询类型,深度分析 CSV 数据
+- **答案自动验证**: 检查答案的准确性和完整性
+- **异常检测**: 可配置阈值检测数据异常(默认30%)
+- **场景对比**: 对比不同月份的场景数据变化
+
+### 基础能力
 
 - **单月分析模式**: 默认返回最新月数据,支持指定月份查询
 - **精确趋势对比**: 仅与相邻月对比、年度同比,不统计多月趋势
@@ -61,7 +71,39 @@ data-qa/
 
 ## 使用方法
 
-### 单月分析
+### 智能问答(推荐 v4.0)
+
+```bash
+python scripts/qa_engine_v4.py --file <csv_path> --question "<问题>"
+```
+
+**支持的问题类型**:
+- 月份数据查询: "最新月的费用疑义场景数据"、"2026/3 的数据"
+- 场景查询: "各场景的 TPO"、"费用疑义的占比"
+- 趋势查询: "最新月的趋势"、"同比和环比情况"
+- 排名查询: "排名前3的场景"、"TPO 最高的场景"
+- 异常检测: "检测异常"、"查看是否有波动"
+- 对比查询: "对比最近两个月"、"2026/2 vs 2026/3"
+
+**示例**:
+```bash
+# 查询最新月数据
+python scripts/qa_engine_v4.py --file D:\data\test.csv --question "最新月的数据"
+
+# 查询特定场景
+python scripts/qa_engine_v4.py --file D:\data\test.csv --question "费用疑义的场景数据"
+
+# 排名查询
+python scripts/qa_engine_v4.py --file D:\data\test.csv --question "排名前3的场景"
+
+# 异常检测
+python scripts/qa_engine_v4.py --file D:\data\test.csv --question "检测异常"
+
+# 对比两个月
+python scripts/qa_engine_v4.py --file D:\data\test.csv --question "对比最近两个月"
+```
+
+### 单月分析(简单模式 v3)
 
 ```bash
 python scripts/qa_engine_v3.py --file <csv_path> [--month <YYYY/M>]
@@ -101,6 +143,10 @@ python scripts/memory_manager.py --search-qa "<关键词>"
 ### 运行测试
 
 ```bash
+# v4.0 完整功能测试
+python scripts/test_qa_v4.py
+
+# v3 评估测试
 python eval/run_evals.py
 ```
 
@@ -115,7 +161,7 @@ python eval/run_evals.py
 
 **输出结构**:
 ```
-## 📊 查询结果
+## 查询结果
 
 **问题**: [用户原始问题]
 **月份**: [数据所属月份]
@@ -128,6 +174,8 @@ python eval/run_evals.py
 **趋势对比**:
 - 环比(vs上月): [数据]
 - 同比(vs上年同月): [数据]
+
+**状态**: [OK]/[!]/[X]
 ```
 
 ## 注意事项
